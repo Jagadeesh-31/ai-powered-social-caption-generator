@@ -4,3 +4,5 @@ __pycache__/
 *.npy
 .env
 .env.local
+
+.vercel
