@@ -49,6 +49,16 @@ PLATFORM_RULES = {
         "max_chars": 500,
         "style": "descriptive and keyword-rich for searchability, inspirational tone; include practical/how-to angle if relevant; 3-5 hashtags",
     },
+    "youtube": {
+        "label": "YouTube",
+        "max_chars": 5000,
+        "style": "video-description style, engaging layout with paragraphs and bullet points, includes standard call-to-action like 'subscribe and turn on notifications', 3-5 tags at the bottom",
+    },
+    "kick": {
+        "label": "Kick",
+        "max_chars": 150,
+        "style": "gamer stream title, high energy, attention-grabbing hook to join stream, 2-3 emojis, gamer slang friendly, 1-2 hashtags",
+    },
 }
 
 class SocialCaptions(BaseModel):
@@ -57,6 +67,8 @@ class SocialCaptions(BaseModel):
     facebook: Optional[str] = None
     linkedin: Optional[str] = None
     pinterest: Optional[str] = None
+    youtube: Optional[str] = None
+    kick: Optional[str] = None
 
 def generate_content_with_retry(client, model, contents, max_retries=5, **kwargs):
     import time
