@@ -64,7 +64,7 @@ def generate_content_with_retry(client, model, contents, max_retries=5, **kwargs
     # Define fallback chain for models
     model_fallbacks = [model]
     if model == "gemini-3.5-flash":
-        model_fallbacks.extend(["gemini-2.5-flash", "gemini-1.5-flash"])
+        model_fallbacks.extend(["gemini-2.0-flash", "gemini-1.5-flash"])
         
     last_exception = None
     for current_model in model_fallbacks:
@@ -202,9 +202,10 @@ Write ready-to-post captions for the following platforms, matching their specifi
 {rules_text}
 
 Requirements:
-- Tone: {tone}
-- Hard limit: must be under the character limit specified for each platform.
-- Output MUST be a JSON object containing the caption for each platform.
+- Tone: The tone MUST be "{tone}" for all generated captions. Ensure this tone is strongly reflected in the writing style.
+- Completeness: You MUST generate a custom caption for every single platform requested above. Do not leave any requested platform blank or null.
+- Hard limit: Each caption must be strictly under the character limit specified for its platform (including hashtags).
+- Output: Output MUST be a JSON object containing the caption for each platform.
 """
         from google.genai import types
         
