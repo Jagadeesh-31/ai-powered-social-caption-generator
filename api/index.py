@@ -2,6 +2,9 @@ import os
 import io
 import tempfile
 import shutil
+import random
+from typing import Optional
+from pydantic import BaseModel
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -48,21 +51,35 @@ PLATFORM_RULES = {
     },
 }
 
-def generate_content_with_retry(client, model, contents, max_retries=4, delay=2):
+class SocialCaptions(BaseModel):
+    instagram: Optional[str] = None
+    x: Optional[str] = None
+    facebook: Optional[str] = None
+    linkedin: Optional[str] = None
+    pinterest: Optional[str] = None
+
+def generate_content_with_retry(client, model, contents, max_retries=5, **kwargs):
     import time
     for attempt in range(max_retries):
         try:
             response = client.models.generate_content(
                 model=model,
-                contents=contents
+                contents=contents,
+                **kwargs
             )
-            return response.text.strip()
-        except (ServerError, ClientError) as e:
-            is_retryable = isinstance(e, ServerError) or (isinstance(e, ClientError) and getattr(e, "code", None) == 429)
-            if is_retryable and attempt < max_retries - 1:
-                time.sleep(delay * (2 ** attempt))
+            return response
+        except Exception as e:
+            err_str = str(e).upper()
+            # Retry for 503 Service Unavailable, 429 Rate Limit / Resource Exhausted, or model busy errors
+            is_busy = "503" in err_str or "UNAVAILABLE" in err_str or "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "LIMIT" in err_str or "BUSY" in err_str
+            if is_busy and attempt < max_retries - 1:
+                wait_time = (2 ** attempt) + random.uniform(0, 1)
+                print(f"Model busy, retrying in {wait_time:.1f}s... (attempt {attempt + 1}/{max_retries})")
+                time.sleep(wait_time)
             else:
-                raise e
+                raise
+    raise Exception("Gemini API still unavailable after multiple retries. Try again in a few minutes.")
+
 
 from fastapi.responses import HTMLResponse
 
@@ -130,51 +147,94 @@ async def generate_captions(
                 raise Exception("Video processing timed out on Gemini. Please try again.")
 
             # Get video description
-            image_description = generate_content_with_retry(
+            description_resp = generate_content_with_retry(
                 client=client,
                 model="gemini-3.5-flash",
                 contents=[uploaded_file, "Provide a plain, factual, one-sentence description of this video."]
             )
+            image_description = description_resp.text.strip()
         else:
             # Process as Image
             image_bytes = await file.read()
             image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
-            image_description = generate_content_with_retry(
+            description_resp = generate_content_with_retry(
                 client=client,
                 model="gemini-3.5-flash",
                 contents=[image, "Provide a plain, factual, one-sentence description of this image."]
             )
+            image_description = description_resp.text.strip()
 
-        # 2. Iterate through requested platforms and write captions
+        # 2. Generate captions in a single prompt using structured JSON output
         platform_list = [p.strip().lower() for p in platforms.split(",")]
         results = {}
+
+        rules_text_list = []
+        for platform_key in platform_list:
+            if platform_key in PLATFORM_RULES:
+                rules = PLATFORM_RULES[platform_key]
+                rules_text_list.append(f"- {rules['label']}: Style: {rules['style']}, Max characters: {rules['max_chars']}")
+        rules_text = "\n".join(rules_text_list)
+        
+        context_line = f"\nAdditional context from the user: {context}\n" if context else ""
+
+        prompt = f"""You are a social media copywriter. Here is a plain, factual description
+of a {media_type}: "{image_description}"
+{context_line}
+
+Write ready-to-post captions for the following platforms, matching their specific styles and character limits:
+{rules_text}
+
+Requirements:
+- Tone: {tone}
+- Hard limit: must be under the character limit specified for each platform.
+- Output MUST be a JSON object containing the caption for each platform.
+"""
+        from google.genai import types
+        
+        response = generate_content_with_retry(
+            client=client,
+            model="gemini-3.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=SocialCaptions,
+            )
+        )
+
+        # Parse structured output safely
+        caption_text_map = {}
+        try:
+            if response.parsed:
+                if hasattr(response.parsed, "model_dump"):
+                    caption_text_map = response.parsed.model_dump()
+                else:
+                    caption_text_map = response.parsed.__dict__
+            else:
+                import json
+                caption_text_map = json.loads(response.text)
+        except Exception:
+            try:
+                import json
+                caption_text_map = json.loads(response.text)
+            except Exception:
+                caption_text_map = {}
 
         for platform_key in platform_list:
             if platform_key not in PLATFORM_RULES:
                 continue
             rules = PLATFORM_RULES[platform_key]
-            context_line = f"\nAdditional context from the user: {context}\n" if context else ""
+            caption_text = caption_text_map.get(platform_key) or ""
             
-            prompt = f"""You are a social media copywriter. Here is a plain, factual description
-of a {media_type}: "{image_description}"
-{context_line}
-Write ONE ready-to-post caption for {rules['label']}.
-
-Requirements:
-- Tone: {tone}
-- Platform style: {rules['style']}
-- Hard limit: must be under {rules['max_chars']} characters, including hashtags
-- Output ONLY the caption text. No explanation, no quotation marks, no preamble.
-"""
-            caption = generate_content_with_retry(
-                client=client,
-                model="gemini-3.5-flash",
-                contents=prompt
-            )
+            # If returned as non-string, cast to string
+            if caption_text is None:
+                caption_text = ""
+            elif not isinstance(caption_text, str):
+                caption_text = str(caption_text)
+                
             results[platform_key] = {
                 "label": rules["label"],
-                "caption": caption,
+                "caption": caption_text.strip(),
                 "max_chars": rules["max_chars"]
             }
 
