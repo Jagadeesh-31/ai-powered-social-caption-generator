@@ -64,7 +64,7 @@ def generate_content_with_retry(client, model, contents, max_retries=5, **kwargs
     # Define fallback chain for models
     model_fallbacks = [model]
     if model == "gemini-3.5-flash":
-        model_fallbacks.extend(["gemini-2.0-flash", "gemini-1.5-flash"])
+        model_fallbacks.extend(["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.1-flash-lite"])
         
     last_exception = None
     for current_model in model_fallbacks:
