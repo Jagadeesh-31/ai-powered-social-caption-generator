@@ -1,0 +1,11 @@
+torch
+transformers
+pillow
+fastapi
+uvicorn
+python-multipart
+faiss-cpu
+streamlit
+requests
+numpy
+google-genai
