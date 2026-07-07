@@ -60,25 +60,41 @@ class SocialCaptions(BaseModel):
 
 def generate_content_with_retry(client, model, contents, max_retries=5, **kwargs):
     import time
-    for attempt in range(max_retries):
-        try:
-            response = client.models.generate_content(
-                model=model,
-                contents=contents,
-                **kwargs
-            )
-            return response
-        except Exception as e:
-            err_str = str(e).upper()
-            # Retry for 503 Service Unavailable, 429 Rate Limit / Resource Exhausted, or model busy errors
-            is_busy = "503" in err_str or "UNAVAILABLE" in err_str or "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "LIMIT" in err_str or "BUSY" in err_str
-            if is_busy and attempt < max_retries - 1:
-                wait_time = (2 ** attempt) + random.uniform(0, 1)
-                print(f"Model busy, retrying in {wait_time:.1f}s... (attempt {attempt + 1}/{max_retries})")
-                time.sleep(wait_time)
-            else:
-                raise
-    raise Exception("Gemini API still unavailable after multiple retries. Try again in a few minutes.")
+    
+    # Define fallback chain for models
+    model_fallbacks = [model]
+    if model == "gemini-3.5-flash":
+        model_fallbacks.extend(["gemini-2.5-flash", "gemini-1.5-flash"])
+        
+    last_exception = None
+    for current_model in model_fallbacks:
+        for attempt in range(max_retries):
+            try:
+                response = client.models.generate_content(
+                    model=current_model,
+                    contents=contents,
+                    **kwargs
+                )
+                return response
+            except Exception as e:
+                last_exception = e
+                err_str = str(e).upper()
+                is_busy = "503" in err_str or "UNAVAILABLE" in err_str or "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "LIMIT" in err_str or "BUSY" in err_str
+                
+                if is_busy:
+                    if attempt < max_retries - 1:
+                        wait_time = (2 ** attempt) + random.uniform(0, 1)
+                        print(f"Model {current_model} busy, retrying in {wait_time:.1f}s... (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(wait_time)
+                    else:
+                        print(f"Model {current_model} exhausted retries. Trying fallback model if available...")
+                        break  # Try the next fallback model in the list
+                else:
+                    raise e  # Non-retryable error (e.g. invalid API key), raise immediately
+                    
+    if last_exception:
+        raise last_exception
+    raise Exception("Gemini API still unavailable after trying fallbacks.")
 
 
 from fastapi.responses import HTMLResponse
