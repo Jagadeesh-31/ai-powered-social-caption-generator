@@ -13,7 +13,6 @@ Run:
 import os
 import streamlit as st
 from PIL import Image
-from transformers import BlipProcessor, BlipForConditionalGeneration
 from google import genai
 
 PLATFORM_RULES = {
@@ -33,13 +32,7 @@ st.set_page_config(page_title="Social Media Caption Generator", layout="centered
 st.title("📱 Social Media Caption Generator")
 st.write("Upload an image → get ready-to-post captions for every platform.")
 
-@st.cache_resource
-def load_blip():
-    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
-    return processor, model
-
-processor, model = load_blip()
+# Local BLIP model removed for lightweight hosting
 
 # API Key Validation and Client Initialization
 api_key = os.environ.get("GEMINI_API_KEY")
@@ -92,10 +85,12 @@ if uploaded_file is not None:
     st.image(image, caption="Uploaded Image", use_column_width=True)
 
     if st.button("Generate Captions", type="primary"):
-        with st.spinner("Analyzing image..."):
-            inputs = processor(image, return_tensors="pt")
-            out = model.generate(**inputs, max_new_tokens=30)
-            image_description = processor.decode(out[0], skip_special_tokens=True)
+        with st.spinner("Analyzing image using Gemini Vision..."):
+            image_description = generate_content_with_retry(
+                client=client,
+                model="gemini-3.5-flash",
+                contents=[image, "Provide a plain, factual, one-sentence description of this image."]
+            )
 
         st.caption(f"Image understood as: *{image_description}*")
 

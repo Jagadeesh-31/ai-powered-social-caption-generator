@@ -14,7 +14,6 @@ Usage:
 import sys
 import argparse
 from PIL import Image
-from transformers import BlipProcessor, BlipForConditionalGeneration
 from google import genai
 
 PLATFORM_RULES = {
@@ -45,17 +44,13 @@ PLATFORM_RULES = {
     },
 }
 
-def load_blip():
-    print("Loading BLIP model...")
-    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
-    return processor, model
-
-def get_image_description(image_path, processor, model):
+def get_image_description(client, image_path):
     raw_image = Image.open(image_path).convert("RGB")
-    inputs = processor(raw_image, return_tensors="pt")
-    out = model.generate(**inputs, max_new_tokens=30)
-    return processor.decode(out[0], skip_special_tokens=True)
+    response = client.models.generate_content(
+        model="gemini-3.5-flash",
+        contents=[raw_image, "Provide a plain, factual, one-sentence description of this image."]
+    )
+    return response.text.strip()
 
 def build_prompt(image_description, platform_key, tone, extra_context):
     rules = PLATFORM_RULES[platform_key]
@@ -117,10 +112,6 @@ def main():
             print(f"Unknown platform '{p}'. Valid options: {', '.join(PLATFORM_RULES.keys())}")
             sys.exit(1)
 
-    processor, model = load_blip()
-    image_description = get_image_description(args.image_path, processor, model)
-    print(f"\nImage description (from BLIP): {image_description}\n")
-
     import os
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
@@ -131,6 +122,9 @@ def main():
         sys.exit(1)
 
     client = genai.Client(api_key=api_key)
+
+    image_description = get_image_description(client, args.image_path)
+    print(f"\nImage description (from Gemini): {image_description}\n")
 
     print("=" * 60)
     for platform_key in platforms:

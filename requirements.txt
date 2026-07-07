@@ -1,11 +1,4 @@
-torch>=2.0.0
-transformers>=4.30.0
-pillow
-fastapi
-uvicorn
-python-multipart
-faiss-cpu
 streamlit
-requests
-numpy
 google-genai
+pillow
+requests
