@@ -102,6 +102,11 @@ def generate_content_with_retry(client, model, contents, max_retries=5, **kwargs
                         print(f"Model {current_model} exhausted retries. Trying fallback model if available...")
                         break  # Try the next fallback model in the list
                 else:
+                    # If the model is not found or not permitted, and we have other fallbacks left, try the next fallback model.
+                    is_model_unavailable = "NOT_FOUND" in err_str or "404" in err_str or "PERMISSION" in err_str or "403" in err_str or "INVALID_ARGUMENT" in err_str
+                    if is_model_unavailable and current_model != model_fallbacks[-1]:
+                        print(f"Model {current_model} not accessible, trying fallback model...")
+                        break
                     raise e  # Non-retryable error (e.g. invalid API key), raise immediately
                     
     if last_exception:
@@ -143,7 +148,7 @@ async def generate_captions(
         if not key:
             raise HTTPException(
                 status_code=400,
-                detail="Gemini API Key is required. Please set the GEMINI_API_KEY environment variable or provide it in the settings."
+                detail="Gemini API Key is required. Please set the GEMINI_API_KEY environment variable or provide it in the developer settings."
             )
         client = genai.Client(api_key=key)
 
@@ -284,7 +289,7 @@ Requirements:
         status_code = 400
         # If API key is wrong, genai SDK usually raises ClientError containing API_KEY_INVALID or 403
         if "api_key" in err_msg.lower() or "api key" in err_msg.lower() or "403" in err_msg or "unauthorized" in err_msg.lower():
-            err_msg = "Invalid Gemini API Key. Please verify your API Key in the settings."
+            err_msg = "Invalid Gemini API Key. Please verify your API Key in the developer settings."
             status_code = 400
         elif "quota" in err_msg.lower() or "rate limit" in err_msg.lower() or "429" in err_msg:
             err_msg = "Gemini API rate limit exceeded. Please try again shortly."

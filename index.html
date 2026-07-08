@@ -52,7 +52,7 @@
   <div class="max-w-4xl mx-auto">
     <!-- Header -->
     <header class="text-center mb-6 md:mb-10">
-      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm font-medium mb-3">
+      <div id="modelBadge" class="hidden inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm font-medium mb-3">
         <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
         Google Gemini 3.5 Multimodal
       </div>
@@ -69,12 +69,44 @@
       <div class="lg:col-span-5 flex flex-col gap-6">
         <!-- Configuration Card -->
         <section class="glass-card rounded-2xl p-6 shadow-xl">
-          <h2 class="text-lg font-bold font-display text-white mb-4 flex items-center gap-2">
+          <h2 id="settingsTitle" class="text-lg font-bold font-display text-white mb-4 flex items-center gap-2 cursor-default select-none">
             Settings
           </h2>
 
-
-
+          <!-- Hidden Developer Settings -->
+          <div id="developerSettingsContainer" class="hidden">
+            <details class="group mb-6 border-b border-slate-800/40 pb-4" open>
+              <summary class="list-none flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:text-slate-400 transition-colors">
+                <span class="flex items-center gap-1.5">
+                  <span>Developer Settings</span>
+                  <span class="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30">Dev Mode</span>
+                </span>
+                <svg class="h-3.5 w-3.5 transform group-open:rotate-180 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </summary>
+              
+              <div class="mt-4">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 flex justify-between items-center">
+                  <span>Gemini API Key</span>
+                  <span class="text-[10px] text-slate-500 font-normal normal-case">Stored locally</span>
+                </label>
+                <div class="relative">
+                  <input type="password" id="apiKey" placeholder="Enter custom API Key..." 
+                         class="w-full bg-slate-900/60 border border-slate-700/60 rounded-xl pl-4 pr-10 py-3 text-sm focus:outline-none focus:border-indigo-500 text-white placeholder-slate-600 transition-colors">
+                  <button type="button" id="toggleApiKeyBtn" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" id="toggleApiKeyIcon">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
+                </div>
+                <p class="text-[10px] text-indigo-400/80 mt-1.5 leading-relaxed">
+                  Optional if server-side GEMINI_API_KEY is configured.
+                </p>
+              </div>
+            </details>
+          </div>
 
           <!-- Tone Selector -->
           <div class="mb-6">
@@ -202,7 +234,7 @@
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
       <div class="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-400 rounded-full animate-spin mb-4"></div>
-      <p class="text-lg font-bold font-display text-white" id="loadingText">Analyzing media with Gemini...</p>
+      <p class="text-lg font-bold font-display text-white" id="loadingText">Analyzing media with model vision...</p>
       <p class="text-sm text-slate-400 mt-1">This might take a few seconds...</p>
     </div>
 
@@ -238,6 +270,13 @@
     const loadingOverlay = document.getElementById('loadingOverlay');
     const loadingText = document.getElementById('loadingText');
     
+    // Developer settings elements
+    const developerSettingsContainer = document.getElementById('developerSettingsContainer');
+    const settingsTitle = document.getElementById('settingsTitle');
+    const apiKeyInput = document.getElementById('apiKey');
+    const toggleApiKeyBtn = document.getElementById('toggleApiKeyBtn');
+    const modelBadge = document.getElementById('modelBadge');
+    
     // Error elements
     const errorCard = document.getElementById('errorCard');
     const errorMessage = document.getElementById('errorMessage');
@@ -249,6 +288,70 @@
     closeErrorBtn.addEventListener('click', () => {
       errorCard.classList.add('hidden');
     });
+
+    // Load API Key from localStorage
+    if (apiKeyInput) {
+      apiKeyInput.value = localStorage.getItem('gemini_api_key') || '';
+      apiKeyInput.addEventListener('input', () => {
+        localStorage.setItem('gemini_api_key', apiKeyInput.value.trim());
+      });
+    }
+
+    // Toggle API Key visibility
+    if (toggleApiKeyBtn && apiKeyInput) {
+      toggleApiKeyBtn.addEventListener('click', () => {
+        if (apiKeyInput.type === 'password') {
+          apiKeyInput.type = 'text';
+          toggleApiKeyBtn.innerHTML = `
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+            </svg>
+          `;
+        } else {
+          apiKeyInput.type = 'password';
+          toggleApiKeyBtn.innerHTML = `
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          `;
+        }
+      });
+    }
+
+    // Developer mode activation logic (query param, localstorage, or 5-clicks on Settings title)
+    let clickCount = 0;
+    let clickTimeout;
+    
+    function enableDevMode() {
+      developerSettingsContainer.classList.remove('hidden');
+      if (modelBadge) modelBadge.classList.remove('hidden');
+      localStorage.setItem('gemini_dev_mode', 'true');
+    }
+
+    // Check URL or localStorage on startup
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('dev') || urlParams.has('developer') || localStorage.getItem('gemini_dev_mode') === 'true') {
+      enableDevMode();
+    }
+
+    if (settingsTitle) {
+      settingsTitle.addEventListener('click', () => {
+        clickCount++;
+        clearTimeout(clickTimeout);
+        if (clickCount >= 5) {
+          enableDevMode();
+          clickCount = 0;
+          // Visual feedback on activation
+          settingsTitle.classList.add('text-indigo-400');
+          setTimeout(() => settingsTitle.classList.remove('text-indigo-400'), 1000);
+        } else {
+          clickTimeout = setTimeout(() => {
+            clickCount = 0;
+          }, 2000);
+        }
+      });
+    }
 
     // Platform toggle listeners
     const platformButtons = document.querySelectorAll('.platform-btn');
@@ -345,15 +448,16 @@
       
       const tone = document.getElementById('tone').value;
       const context = document.getElementById('context').value;
+      const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
 
       const formData = new FormData();
       formData.append('file', selectedImage);
       formData.append('platforms', activePlatforms.join(','));
       formData.append('tone', tone);
       formData.append('context', context);
-      formData.append('api_key', '');
+      formData.append('api_key', apiKey);
 
-      loadingText.innerText = "Analyzing image with Gemini Vision...";
+      loadingText.innerText = "Analyzing image with model vision...";
       loadingOverlay.classList.remove('hidden');
       resultsSection.classList.add('hidden');
       errorCard.classList.add('hidden');

@@ -85,7 +85,7 @@ if uploaded_file is not None:
     st.image(image, caption="Uploaded Image", use_column_width=True)
 
     if st.button("Generate Captions", type="primary"):
-        with st.spinner("Analyzing image using Gemini Vision..."):
+        with st.spinner("Analyzing image using model vision..."):
             image_description = generate_content_with_retry(
                 client=client,
                 model="gemini-3.5-flash",
