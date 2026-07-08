@@ -319,10 +319,6 @@
       });
     }
 
-    // Developer mode activation logic (query param, localstorage, or 5-clicks on Settings title)
-    let clickCount = 0;
-    let clickTimeout;
-    
     function enableDevMode() {
       developerSettingsContainer.classList.remove('hidden');
       if (modelBadge) modelBadge.classList.remove('hidden');
@@ -333,24 +329,6 @@
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('dev') || urlParams.has('developer') || localStorage.getItem('gemini_dev_mode') === 'true') {
       enableDevMode();
-    }
-
-    if (settingsTitle) {
-      settingsTitle.addEventListener('click', () => {
-        clickCount++;
-        clearTimeout(clickTimeout);
-        if (clickCount >= 5) {
-          enableDevMode();
-          clickCount = 0;
-          // Visual feedback on activation
-          settingsTitle.classList.add('text-indigo-400');
-          setTimeout(() => settingsTitle.classList.remove('text-indigo-400'), 1000);
-        } else {
-          clickTimeout = setTimeout(() => {
-            clickCount = 0;
-          }, 2000);
-        }
-      });
     }
 
     // Platform toggle listeners

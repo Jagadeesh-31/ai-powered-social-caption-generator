@@ -148,7 +148,7 @@ async def generate_captions(
         if not key:
             raise HTTPException(
                 status_code=400,
-                detail="Gemini API Key is required. Please set the GEMINI_API_KEY environment variable or provide it in the developer settings."
+                detail="Gemini API Key is required. Please configure the server-side GEMINI_API_KEY."
             )
         client = genai.Client(api_key=key)
 
@@ -289,7 +289,7 @@ Requirements:
         status_code = 400
         # If API key is wrong, genai SDK usually raises ClientError containing API_KEY_INVALID or 403
         if "api_key" in err_msg.lower() or "api key" in err_msg.lower() or "403" in err_msg or "unauthorized" in err_msg.lower():
-            err_msg = "Invalid Gemini API Key. Please verify your API Key in the developer settings."
+            err_msg = "Invalid Gemini API Key. Please verify the server configuration."
             status_code = 400
         elif "quota" in err_msg.lower() or "rate limit" in err_msg.lower() or "429" in err_msg:
             err_msg = "Gemini API rate limit exceeded. Please try again shortly."
